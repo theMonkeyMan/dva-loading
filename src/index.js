@@ -2,8 +2,26 @@ const SHOW = '@@DVA_LOADING/SHOW';
 const HIDE = '@@DVA_LOADING/HIDE';
 const NAMESPACE = 'loading';
 
+/*设置不会影响loading的effect
+  for example:
+    const notShowEffectArray=['app/login','data/get'];
+      const app = dva({
+        history: browserHistory,
+    });
+    app.use(createLoading({effects:true,notShowEffectArray:notShowEffectArray}))
+*/
+function isShowLoading(notShowEffectArray, actionType) {
+  for (let i = 0; i < notShowEffectArray.length; i++) {
+    if (actionType === notShowEffectArray[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function createLoading(opts = {}) {
   const namespace = opts.namespace || NAMESPACE;
+  const notShowEffectArray = opts.notShowEffectArray || [];
   let initialState = {
     global: false,
     models: {},
@@ -20,15 +38,15 @@ function createLoading(opts = {}) {
         case SHOW:
           ret = {
             ...state,
-            global: true,
-            models: { ...state.models, [namespace]:true },
+            global: isShowLoading(notShowEffectArray, actionType),
+            models: { ...state.models, [namespace]: true },
           };
           if (opts.effects) {
-            ret.effects = { ...state.effects, [actionType]: true };
+            ret.effects = { ...state.effects, [actionType]: isShowLoading(notShowEffectArray, actionType) };
           }
           break;
         case HIDE:
-          const models = { ...state.models, [namespace]:false };
+          const models = { ...state.models, [namespace]: false };
           const global = Object.keys(models).some(namespace => {
             return models[namespace];
           });
@@ -51,10 +69,11 @@ function createLoading(opts = {}) {
 
   function onEffect(effect, { put }, model, actionType) {
     const { namespace } = model;
-    return function*(...args) {
+    return function* (...args) {
       yield put({ type: SHOW, payload: { namespace, actionType } });
       yield effect(...args);
       yield put({ type: HIDE, payload: { namespace, actionType } });
+
     };
   }
 
